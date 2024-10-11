@@ -106,7 +106,7 @@ class Booking(models.Model):
     car = models.ForeignKey(Car, on_delete=models.CASCADE, related_name='bookings')
     parking_place = models.ForeignKey(ParkingSpot, on_delete=models.CASCADE, related_name='bookings')
     tariff = models.ForeignKey(Tariff, on_delete=models.CASCADE, related_name='bookings')
-    start_time = models.DateTimeField()  # Дата и время начала бронирования
+    start_time = models.DateTimeField(auto_now_add=True)  # Дата и время начала бронирования
     end_time = models.DateTimeField()  # Дата и время конца бронирования
 
     def save(self, *args, **kwargs):
@@ -128,14 +128,9 @@ class Booking(models.Model):
 
 
 class Payment(models.Model):
-    STATUSES = [
-        ('paid', 'оплачено'),
-        ('not_paid', 'не оплачено')
-    ]
     booking = models.OneToOneField(Booking, on_delete=models.CASCADE, related_name='payment')
     amount = models.DecimalField(max_digits=10, decimal_places=2, editable=False)
     payment_date = models.DateTimeField(auto_now_add=True)
-    status = models.CharField(max_length=20, choices=STATUSES)
 
     def save(self, *args, **kwargs):
         # Автоматически устанавливаем сумму на основе цены тарифа

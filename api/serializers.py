@@ -1,5 +1,7 @@
 from rest_framework import serializers
-from .models import CustomUser, Car
+from .models import CustomUser, Car, Booking
+from django.utils import timezone
+from api.tasks import release_booking_if_not_paid
 
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
@@ -32,3 +34,33 @@ class CarSerializer(serializers.ModelSerializer):
         user = self.context['request'].user
         car = Car.objects.create(user=user, **validated_data)
         return car
+
+
+class BookingSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Booking
+        fields = ['id', 'status', 'car', 'parking_place', 'tariff', 'start_time', 'end_time']
+        read_only_fields = ['status', 'start_time', 'end_time']
+
+    def validate(self, data):
+        parking_place = data.get('parking_place')
+        if parking_place.status != 'available':
+            raise serializers.ValidationError("The selected parking spot is not available.")
+        return data
+
+    def create(self, validated_data):
+        car = validated_data['car']
+        parking_place = validated_data['parking_place']
+        tariff = validated_data['tariff']
+
+        booking = Booking.objects.create(
+            car=car,
+            parking_place=parking_place,
+            tariff=tariff,
+            start_time=timezone.now(),
+        )
+
+        # Запускаем фоновую задачу для освобождения брони через 20 минут, если не оплачено
+        # release_booking_if_not_paid.apply_async((booking.id,), countdown=1200)
+
+        return booking

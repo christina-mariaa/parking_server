@@ -4,7 +4,7 @@ from django.urls import reverse
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from .serializers import UserRegistrationSerializer, CarSerializer
+from .serializers import UserRegistrationSerializer, CarSerializer, BookingSerializer
 from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
 from django.utils.encoding import force_bytes, force_str
 from django.contrib.auth.tokens import default_token_generator
@@ -60,4 +60,16 @@ class AddCarView(APIView):
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class CreateBookingView(APIView):
+    def post(self, request):
+        serializer = BookingSerializer(data=request.data, context={'request': request})
+        if serializer.is_valid():
+            booking = serializer.save()
+            return Response({
+                'message': 'Booking created successfully.',
+                'booking_id': booking.id
+            }, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
