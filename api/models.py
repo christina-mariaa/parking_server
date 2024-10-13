@@ -1,6 +1,5 @@
 from django.db import models
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
-from django.core.exceptions import ValidationError
 from datetime import timedelta
 
 
@@ -68,7 +67,7 @@ class Tariff(models.Model):
         ('daily', 'Дневной'),  # 1 день
         ('monthly', 'Месячный')  # 30 дней
     ]
-    name = models.CharField(max_length=50, choices=DURATION_CHOICES)  # название
+    name = models.CharField(max_length=50, choices=DURATION_CHOICES, unique=True)
     price = models.DecimalField(max_digits=10, decimal_places=2)  # стоимость тарифа
 
     def get_duration_delta(self):
@@ -79,7 +78,7 @@ class Tariff(models.Model):
         return timedelta()
 
     def __str__(self):
-        return f"{self.name} - {self.price}"
+        return f"{self.name}"
 
 
 # Модель парковочного места

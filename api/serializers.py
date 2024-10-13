@@ -1,7 +1,7 @@
 from rest_framework import serializers
-from .models import CustomUser, Car, Booking
+from .models import CustomUser, Car, Booking, Payment
 from django.utils import timezone
-from api.tasks import release_booking_if_not_paid
+from api.tasks import release_booking_if_not_paid, complete_booking
 
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
@@ -43,6 +43,12 @@ class BookingSerializer(serializers.ModelSerializer):
         read_only_fields = ['status', 'start_time', 'end_time']
 
     def validate(self, data):
+        car = data.get('car')
+        user = self.context['request'].user
+        if car.user != user:
+            raise serializers.ValidationError("You do not have permission to use this car.")
+        if Booking.objects.filter(car=car, status='active').exists():
+            raise serializers.ValidationError("This car already has an active booking.")
         parking_place = data.get('parking_place')
         if parking_place.status != 'available':
             raise serializers.ValidationError("The selected parking spot is not available.")
@@ -60,7 +66,28 @@ class BookingSerializer(serializers.ModelSerializer):
             start_time=timezone.now(),
         )
 
-        # Запускаем фоновую задачу для освобождения брони через 20 минут, если не оплачено
-        # release_booking_if_not_paid.apply_async((booking.id,), countdown=1200)
+        # Запуск фоновой задачи для освобождения брони через 20 минут, если не оплачено
+        release_booking_if_not_paid.apply_async((booking.id,), countdown=1200)
+        time_to_completion = (booking.end_time - timezone.now()).total_seconds()
+        complete_booking.apply_async((booking.id,), countdown=time_to_completion)
 
         return booking
+
+
+class PaymentSerializer(serializers.ModelSerializer):
+    amount = serializers.DecimalField(max_digits=10, decimal_places=2, read_only=True)
+
+    class Meta:
+        model = Payment
+        fields = ['id', 'booking', 'amount', 'payment_date']
+        read_only_fields = ['id', 'amount', 'payment_date']
+
+    def validate(self, data):
+        booking = data['booking']
+        if hasattr(booking, 'payment'):
+            raise serializers.ValidationError("This booking is already paid.")
+        return data
+
+    def create(self, validated_data):
+        payment = Payment.objects.create(**validated_data)
+        return payment
