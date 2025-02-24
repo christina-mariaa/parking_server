@@ -3,22 +3,24 @@ version: '3.8'
 services:
   web:
     build: .
-    command: python manage.py runserver 0.0.0.0:8000
+    command: daphne -b 0.0.0.0 -p 8000 parking_server.asgi:application
     volumes:
       - .:/app
+      - /home/ubuntuuser/parking_server_media:/app/media
     ports:
-      - "8000:8000"
+      - "8080:8000"
     depends_on:
       - db
       - redis
     environment:
-      - CELERY_BROKER_URL=redis://redis:6379/0
-      - CELERY_RESULT_BACKEND=redis://redis:6379/0
-      - DB_NAME=ParkingDB
-      - DB_USER=postgres
-      - DB_PASSWORD=1234
-      - DB_HOST=db
-      - DB_PORT=5432
+      - CELERY_BROKER_URL=${CELERY_BROKER_URL}
+      - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND}
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_HOST=${DB_HOST}
+      - DB_PORT=${DB_PORT}
+      - REDIS_URL=${REDIS_URL}
 
   celery:
     build: .
@@ -26,28 +28,56 @@ services:
     volumes:
       - .:/app
     depends_on:
+      - web
       - db
       - redis
     environment:
-      - CELERY_BROKER_URL=redis://redis:6379/0
-      - CELERY_RESULT_BACKEND=redis://redis:6379/0
-      - DB_NAME=ParkingDB
-      - DB_USER=postgres
-      - DB_PASSWORD=1234
-      - DB_HOST=db
-      - DB_PORT=5432
+      - CELERY_BROKER_URL=${CELERY_BROKER_URL}
+      - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND}
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_HOST=${DB_HOST}
+      - DB_PORT=${DB_PORT}
+
+  celery-beat:
+    build: .
+    command: celery -A parking_server beat --loglevel=info
+    volumes:
+      - .:/app
+    depends_on:
+      - web
+      - redis
+    environment:
+      - CELERY_BROKER_URL=${CELERY_BROKER_URL}
+      - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND}
+      - DB_NAME=${DB_NAME}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_HOST=${DB_HOST}
+      - DB_PORT=${DB_PORT}
 
   db:
     image: postgres
     restart: always
     environment:
-      - POSTGRES_DB=ParkingDB
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=1234
+      - POSTGRES_DB=${DB_NAME}
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
     ports:
       - "5432:5432"
+    volumes:
+    - postgres_data:/var/lib/postgresql/data
 
   redis:
     image: redis:alpine
     ports:
       - "6379:6379"
+    volumes:
+    - ./redis.conf:/usr/local/etc/redis/redis.conf
+    - redis_data:/data
+    command: ["redis-server", "/usr/local/etc/redis/redis.conf"]
+  
+volumes:
+  postgres_data:
+  redis_data:

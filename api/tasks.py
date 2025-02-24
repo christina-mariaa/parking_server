@@ -1,29 +1,32 @@
 from celery import shared_task
 from api.models import Booking
 from django.utils import timezone
+from datetime import timedelta
+from django.db import transaction
+from django.utils.timezone import now
 
 @shared_task
-def release_booking_if_not_paid(booking_id):
-    try:
-        booking = Booking.objects.get(id=booking_id, status='active')
+def manage_expired_and_unpaid_bookings():
+    """
+    Проверяет все активные бронирования:
+    1. Завершает бронирования, если они истекли.
+    2. Отменяет бронирования, если они не были оплачены в течение 20 минут.
+    """
+    now = timezone.now()
+    timeout = timedelta(minutes=20)
 
-        if not hasattr(booking, 'payment'):
-            booking.status = 'cancelled'
-            booking.save()
-            booking.parking_place.status = 'available'
-            booking.parking_place.save()
-    except Booking.DoesNotExist:
-        pass
+    # Завершаем бронирования, у которых время окончания прошло
+    expired_bookings = Booking.objects.filter(status='active', end_time__lt=now)
+    for booking in expired_bookings:
+        booking.status = 'completed'
+        booking.parking_place.status = 'available'  # Освобождаем парковочное место
+        booking.parking_place.save()
+        booking.save()  # Сохраняем изменения
 
-
-@shared_task
-def complete_booking(booking_id):
-    try:
-        booking = Booking.objects.get(id=booking_id)
-        if booking.end_time <= timezone.now():
-            booking.status = 'completed'
-            booking.save()
-            booking.parking_place.status = 'available'
-            booking.parking_place.save()
-    except Booking.DoesNotExist:
-        pass
+    # Отменяем бронирования, которые не были оплачены в течение 20 минут
+    unpaid_bookings = Booking.objects.filter(status='active', payment__isnull=True, start_time__lte=now - timeout)
+    for booking in unpaid_bookings:
+        booking.status = 'cancelled'
+        booking.parking_place.status = 'available'  # Освобождаем парковочное место
+        booking.parking_place.save()
+        booking.save()  # Сохраняем изменения

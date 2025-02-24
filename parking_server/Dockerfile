@@ -18,8 +18,3 @@ COPY . /app/
 
 # Открываем порт 8000, на котором будет работать Django-сервер
 EXPOSE 8000
-
-# Запускаем миграции базы данных
-CMD ["python", "manage.py", "migrate"]
-# Запускаем Django-сервер
-CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]

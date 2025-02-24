@@ -15,10 +15,12 @@ SECRET_KEY = 'django-insecure--h1ja7zrb%splew2!$$h3i_c6#op*lp^%fy5nfpoak+r39evyo
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['192.168.3.22', 'localhost', '127.0.0.1', '*']
+ALLOWED_HOSTS = ['81.94.150.202']
 
 AUTH_USER_MODEL = 'api.CustomUser'
 
+# Django settings.py
+DEFAULT_CHARSET = 'utf-8'
 
 # Application definition
 
@@ -47,7 +49,20 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'api',
+    'channels',
+    'django_celery_beat'
 ]
+
+ASGI_APPLICATION = "parking_server.asgi.application"
+
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {
+            "hosts": ["redis://:les-jardin-de-provence@redis:6379/0"],
+        },
+    },
+}
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -64,7 +79,7 @@ ROOT_URLCONF = 'parking_server.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [os.path.join(BASE_DIR, 'templates')],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -100,6 +115,11 @@ DATABASES = {
     }
 }
 
+PASSWORD_HASHERS = [
+    'django.contrib.auth.hashers.Argon2PasswordHasher',
+    'django.contrib.auth.hashers.PBKDF2PasswordHasher',
+    'django.contrib.auth.hashers.BCryptSHA256PasswordHasher',
+]
 
 # Password validation
 # https://docs.djangoproject.com/en/5.1/ref/settings/#auth-password-validators
@@ -137,15 +157,18 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 
-# Default primary key field type
-# https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
-
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = 'smtp.gmail.com'
-EMAIL_PORT = 587
-EMAIL_USE_TLS = True
-EMAIL_HOST_USER = 'christinamariaa4@gmail.com'
-EMAIL_HOST_PASSWORD = 'rtrf xptn wpct dnhm'
-DEFAULT_FROM_EMAIL = 'christinamariaa4@gmail.com'
+MEDIA_URL = '/media/'
+MEDIA_ROOT = '/app/media'
+
+CACHES = {
+    'default': {
+        'BACKEND': 'django_redis.cache.RedisCache',
+        'LOCATION': os.getenv('REDIS_URL', 'redis://:les-jardin-de-provence@redis:6379/1'),
+        'OPTIONS': {
+            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+        },
+        'TIMEOUT': None,  # Данные будут сохраняться на неопределенное время
+    }
+}

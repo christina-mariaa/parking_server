@@ -29,37 +29,62 @@ class CustomUserManager(BaseUserManager):
 
         return self.create_user(email, password, **extra_fields)
 
+    def get_queryset(self):
+        return super().get_queryset().filter(is_deleted=False)
+
 
 # Модель пользователя
-class CustomUser(AbstractBaseUser, PermissionsMixin):
+class CustomUser(AbstractBaseUser):
     email = models.EmailField(unique=True)
-    first_name = models.CharField(max_length=30)
-    last_name = models.CharField(max_length=30)
+    first_name = models.CharField(max_length=100)
+    last_name = models.CharField(max_length=100)
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
+    is_superuser = models.BooleanField(default=False)
     date_joined = models.DateTimeField(auto_now_add=True)
+    is_deleted = models.BooleanField(default=False)
 
     objects = CustomUserManager()
-
+    all_objects = models.Manager()
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['first_name', 'last_name']
 
-    def __str__(self):
-        return self.email
+    def delete(self, *args, **kwargs):
+        # Проверим, есть ли связанные автомобили с активными бронированиями
+        if self.cars.filter(bookings__status='active').exists():
+            raise Exception("Нельзя удалить пользователя, пока у него есть автомобили с активными бронированиями.")
+
+        self.is_active = False
+        self.save()
+
+        # Обновим связанные автомобили
+        for car in self.cars.all():
+            car.delete()
+
+
+class CarManager(models.Manager):
+    def get_queryset(self):
+        return super().get_queryset().filter(is_deleted=False)
 
 
 # Модель автомобиля
 class Car(models.Model):
     user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='cars')
-    license_plate = models.CharField(max_length=15, unique=True)
-    make = models.CharField(max_length=50, blank=True, null=True)  # марка автомобиля
-    model = models.CharField(max_length=100, blank=True, null=True)  # модель автомобиля
-    color = models.CharField(max_length=50, blank=True, null=True)
-
+    license_plate = models.CharField(max_length=15)
+    make = models.CharField(max_length=50, null=True)  # марка автомобиля
+    model = models.CharField(max_length=100, null=True)  # модель автомобиля
+    color = models.CharField(max_length=50, null=True)
+    is_deleted = models.BooleanField(default=False)
     registered_at = models.DateTimeField(auto_now_add=True)  # дата регистрации автомобиля
+    objects = CarManager()
+    all_objects = models.Manager()
 
-    def __str__(self):
-        return f"{self.license_plate} ({self.make or 'Unknown Make'} {self.model or 'Unknown Model'}) - User: {self.user}"
+    def delete(self, *args, **kwargs):
+        if self.bookings.filter(status='active').exists():
+            raise Exception("Нельзя удалить автомобиль, пока на него есть активные бронирования.")
+        self.is_deleted = True
+        self.license_plate = "Удален"
+        self.save()
 
 
 class Tariff(models.Model):
@@ -68,17 +93,17 @@ class Tariff(models.Model):
         ('monthly', 'Месячный')  # 30 дней
     ]
     name = models.CharField(max_length=50, choices=DURATION_CHOICES, unique=True)
-    price = models.DecimalField(max_digits=10, decimal_places=2)  # стоимость тарифа
+    price = models.DecimalField(max_digits=10, decimal_places=2)  # Стоимость тарифа
+    created_at = models.DateTimeField(auto_now_add=True)  # Дата создания
+    updated_at = models.DateTimeField(auto_now=True)  # Дата последнего изменения
 
     def get_duration_delta(self):
+        """Возвращает длительность действия тарифа в днях."""
         if self.name == 'daily':
             return timedelta(days=1)
         elif self.name == 'monthly':
             return timedelta(days=30)
         return timedelta()
-
-    def __str__(self):
-        return f"{self.name}"
 
 
 # Модель парковочного места
@@ -88,11 +113,8 @@ class ParkingSpot(models.Model):
         ('available', 'свободно'),
         ('unavailable', 'недоступно для бронирования')
     ]
-    spot_number = models.CharField(max_length=10)
+    spot_number = models.IntegerField(primary_key=True)
     status = models.CharField(max_length=50, choices=STATUSES)
-
-    def __str__(self):
-        return f"Парковочное место №{self.spot_number} {self.status}"
 
 
 class Booking(models.Model):
@@ -109,21 +131,9 @@ class Booking(models.Model):
     end_time = models.DateTimeField()  # Дата и время конца бронирования
 
     def save(self, *args, **kwargs):
-        if self.start_time and self.tariff:
+        if not self.pk and self.start_time and self.tariff:  # Проверяем, что объект ещё не сохранён
             self.end_time = self.start_time + self.tariff.get_duration_delta()
-        # Обновляем статус парковочного места на "забронировано"
-        self.parking_place.status = 'booked'
-        self.parking_place.save()
         super().save(*args, **kwargs)
-
-    def delete(self, *args, **kwargs):
-        # При удалении бронирования меняем статус парковочного места на "доступно"
-        self.parking_place.status = 'available'
-        self.parking_place.save()
-        super().delete(*args, **kwargs)
-
-    def __str__(self):
-        return f"Бронирование автомобиля {self.car.license_plate} с {self.start_time} по {self.end_time}"
 
 
 class Payment(models.Model):
@@ -136,5 +146,8 @@ class Payment(models.Model):
         self.amount = self.booking.tariff.price
         super().save(*args, **kwargs)
 
-    def __str__(self):
-        return f"Оплата бронирования {self.booking.id}, сумма: {self.amount}"
+
+class ParkingMap(models.Model):
+    name = models.CharField(max_length=50, verbose_name="Название карты")
+    svg_file = models.FileField(upload_to='parking_maps/', verbose_name="Файл SVG")
+    uploaded_at = models.DateTimeField(auto_now_add=True, verbose_name="Дата загрузки")
