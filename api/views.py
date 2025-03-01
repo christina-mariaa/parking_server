@@ -1,23 +1,31 @@
+from django.http import HttpResponse
+from django.db import models
+from django.db.models import Count, Case, When, Sum
+from django.utils.timezone import now, timedelta
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
-import datetime
-from django.http import FileResponse
-import re
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.viewsets import ReadOnlyModelViewSet
-from django.db import models
-from django.db.models import Count, Case, When, Sum
-from django.utils.timezone import now, timedelta
-from .models import *
+from rest_framework.parsers import MultiPartParser, FormParser
+import datetime
+import re
+import os
+
+from .models import (
+    CustomUser,
+    Car,
+    Tariff,
+    Booking,
+    Payment,
+    ParkingSpot,
+    ParkingMap,
+)
 from .serializers import *
 from .permissions import IsAdminPermission
-from rest_framework.parsers import MultiPartParser, FormParser
-from .report_generators import *
-from django.http import HttpResponse
-import os
+
 
 class CustomTokenObtainPairView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
@@ -472,6 +480,7 @@ class ParkingStatusSummaryView(APIView):
     Получение статистики по статусам мест администратором.
     """
     permission_classes = [IsAuthenticated, IsAdminPermission]
+
     def get(self, request):
         status_counts = ParkingSpot.objects.values('status').annotate(count=Count('status'))
         result = {item['status']: item['count'] for item in status_counts}
@@ -520,99 +529,3 @@ class BookingStatsByTariffView(APIView):
             stats[period_name] = list(data)
 
         return Response(stats)
-
-
-def collect_statistics(start_date, end_date):
-    return {
-        "Общее количество бронирований": Booking.objects.filter(start_time__range=[start_date, end_date]).count(),
-        "Бронирования по статусам": ", ".join(
-            [f"{item['status']}: {item['count']}" for item in
-             Booking.objects.filter(start_time__range=[start_date, end_date])
-             .values('status')
-             .annotate(count=Count('id'))]
-        ),
-        "Бронирования по тарифам": ", ".join(
-            [f"{item['tariff__name']}: {item['count']}" for item in
-             Booking.objects.filter(start_time__range=[start_date, end_date])
-             .values('tariff__name')
-             .annotate(count=Count('id'))]
-        ),
-        "Общая сумма оплат": Payment.objects.filter(payment_date__range=[start_date, end_date])
-                                       .aggregate(total=Sum('amount'))['total'] or 0,
-        "Новые пользователи": CustomUser.objects.filter(date_joined__range=[start_date, end_date]).count(),
-        "Добавленные автомобили": Car.objects.filter(registered_at__range=[start_date, end_date]).count(),
-    }
-
-
-def collect_bookings(start_date, end_date):
-    bookings =  Booking.objects.filter(start_time__range=[start_date, end_date]).values(
-        'id', 'start_time', 'end_time', 'car__license_plate', 'car__user__email', 'status', 'tariff__name',
-        'parking_place__spot_number'
-    )
-    for booking in bookings:
-        booking['start_time'] = booking['start_time'].replace(tzinfo=None)
-        booking['end_time'] = booking['end_time'].replace(tzinfo=None)
-    return bookings
-
-
-def collect_payments(start_date, end_date):
-    payments = Payment.objects.filter(payment_date__range=[start_date, end_date]).values(
-        'id', 'amount', 'payment_date', 'booking_id', 'booking__car__user__email'
-    )
-    for payment in payments:
-        payment['payment_date'] = payment['payment_date'].replace(tzinfo=None)
-    return payments
-
-
-def collect_new_users(start_date, end_date):
-    users = CustomUser.objects.filter(date_joined__range=[start_date, end_date]).values(
-        'id', 'email', 'first_name', 'last_name', 'date_joined'
-    )
-    for user in users:
-        user['date_joined'] = user['date_joined'].replace(tzinfo=None)
-    return users
-
-
-def collect_new_cars(start_date, end_date):
-    cars = Car.objects.filter(registered_at__range=[start_date, end_date]).values(
-        'id', 'user__email', 'license_plate', 'make', 'model', 'color', 'registered_at', 'is_deleted'
-    )
-    for car in cars:
-        car['registered_at'] = car['registered_at'].replace(tzinfo=None)
-    return cars
-
-
-class GenerateReportAPIView(APIView):
-    """
-    Генерация отчетов администратором.
-    """
-    permission_classes = [IsAuthenticated, IsAdminPermission]
-
-    def post(self, request):
-        start_date = request.data.get('start_date')
-        end_date = request.data.get('end_date')
-        include = request.data.get('include', [])  # ["statistics", "bookings", ...]
-
-        if not start_date or not end_date:
-            return Response({"error": "start_date and end_date are required"}, status=400)
-
-        data = {}
-        if 'statistics' in include:
-            data['statistics'] = collect_statistics(start_date, end_date)
-        if 'bookings' in include:
-            data['bookings'] = collect_bookings(start_date, end_date)
-        if 'payments' in include:
-            data['payments'] = collect_payments(start_date, end_date)
-        if 'new_users' in include:
-            data['new_users'] = collect_new_users(start_date, end_date)
-        if 'new_cars' in include:
-            data['new_cars'] = collect_new_cars(start_date, end_date)
-
-        filename = generate_xlsx_report(data)
-        file_type = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-
-        # Используем FileResponse для отправки файла
-        response = FileResponse(open(filename, 'rb'), content_type=file_type)
-        response['Content-Disposition'] = f'attachment; filename="{os.path.basename(filename)}"'
-        return response
-

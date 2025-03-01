@@ -20,7 +20,7 @@ admin_patterns = [
     path('parking-status/', ParkingStatusSummaryView.as_view(), name='parking_status_summary'),
     path('booking-stats/', BookingStatsByTariffView.as_view(), name='booking-stats'),
 
-    path('reports/generate/', GenerateReportAPIView.as_view(), name='generate-report'),
+    path('reports/', include('api.reports.urls')),
 ]
 
 urlpatterns = [
