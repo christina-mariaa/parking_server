@@ -4,7 +4,6 @@ from django.utils import timezone
 from django.core.cache import cache
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
-from .qr_generator import generate_qr_code
 
 def get_user_from_cache(email):
     user = cache.get(email)
@@ -96,21 +95,14 @@ class BookingSerializer(serializers.ModelSerializer):
     )
     payment_amount = serializers.SerializerMethodField()
     payment_date = serializers.SerializerMethodField()
-    qr_code = serializers.SerializerMethodField()
 
     class Meta:
         model = Booking
         fields = [
             'id', 'status', 'car_id', 'car_license_plate', 'car_make', 'car_model', 'car_color',
-            'parking_place', 'tariff_id', 'tariff_name', 'start_time', 'end_time', 'payment_amount', 'payment_date', 'qr_code'
+            'parking_place', 'tariff_id', 'tariff_name', 'start_time', 'end_time', 'payment_amount', 'payment_date'
         ]
         read_only_fields = ['status', 'start_time', 'end_time']
-
-    def get_qr_code(self, obj):
-        """Возвращает qr-код в base64 формате если бронирование оплачено."""
-        if hasattr(obj, 'payment') and obj.status == "active":
-            return generate_qr_code(obj.id, obj.start_time, obj.end_time)
-        return None
 
     def get_payment_amount(self, obj):
         """Возвращает сумму оплаты, если она существует."""

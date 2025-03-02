@@ -41,4 +41,5 @@ urlpatterns = [
     path('tariffs/', TariffsListView.as_view(), name='tariffs_list'),
 
     path('api/admin/', include((admin_patterns, 'admin'), namespace='admin')),
+    path('qrcode/', include('api.qr_access.urls')),
 ]
