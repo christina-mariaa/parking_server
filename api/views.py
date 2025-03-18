@@ -107,6 +107,8 @@ class UserBookingView(APIView):
         bookings = Booking.objects.filter(car__user=request.user)
         if is_active == 'true':
             bookings = bookings.filter(status='active')
+        elif is_active == 'false':
+            bookings = bookings.exclude(status='active')
 
         if is_paid == 'true':
             # Только оплаченные бронирования
