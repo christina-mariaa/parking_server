@@ -21,6 +21,8 @@ services:
       - DB_HOST=${DB_HOST}
       - DB_PORT=${DB_PORT}
       - REDIS_URL=${REDIS_URL}
+    networks:
+      - parking_network
 
   celery:
     build: .
@@ -39,10 +41,12 @@ services:
       - DB_PASSWORD=${DB_PASSWORD}
       - DB_HOST=${DB_HOST}
       - DB_PORT=${DB_PORT}
+    networks:
+      - parking_network
 
   celery-beat:
     build: .
-    command: celery -A parking_server beat --loglevel=info
+    command: sh -c "celery -A parking_server purge -f && celery -A parking_server beat --loglevel=info"
     volumes:
       - .:/app
     depends_on:
@@ -56,6 +60,8 @@ services:
       - DB_PASSWORD=${DB_PASSWORD}
       - DB_HOST=${DB_HOST}
       - DB_PORT=${DB_PORT}
+    networks:
+      - parking_network
 
   db:
     image: postgres
@@ -64,20 +70,23 @@ services:
       - POSTGRES_DB=${DB_NAME}
       - POSTGRES_USER=${DB_USER}
       - POSTGRES_PASSWORD=${DB_PASSWORD}
-    ports:
-      - "5432:5432"
     volumes:
     - postgres_data:/var/lib/postgresql/data
+    networks:
+      - parking_network
 
   redis:
     image: redis:alpine
-    ports:
-      - "6379:6379"
     volumes:
     - ./redis.conf:/usr/local/etc/redis/redis.conf
     - redis_data:/data
     command: ["redis-server", "/usr/local/etc/redis/redis.conf"]
+    networks:
+      - parking_network
   
 volumes:
   postgres_data:
   redis_data:
+
+networks:
+  parking_network:
