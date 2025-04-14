@@ -5,7 +5,7 @@ from datetime import timedelta
 from django.db import transaction
 from django.utils.timezone import now
 
-@shared_task
+@shared_task(expires=60)
 def manage_expired_and_unpaid_bookings():
     """
     Проверяет все активные бронирования:

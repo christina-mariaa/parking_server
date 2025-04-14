@@ -12,6 +12,9 @@ app.autodiscover_tasks()  # Автоматически загружаем зад
 app.conf.beat_schedule = {
     'complete-expired-bookings-every-minute': {
         'task': 'api.tasks.manage_expired_and_unpaid_bookings',
-        'schedule': crontab(minute='*/1'),  # Выполняется каждую минуту
+        'schedule': crontab(minute='*/1'),
+	'options': {
+            'expires': 60,  
+        },
     },
 }
