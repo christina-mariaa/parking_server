@@ -3,7 +3,7 @@ version: '3.8'
 services:
   web:
     build: .
-    command: daphne -b 0.0.0.0 -p 8000 parking_server.asgi:application
+    command: daphne -b 0.0.0.0 -p 8000 config.asgi:application
     volumes:
       - .:/app
       - /home/ubuntuuser/parking_server_media:/app/media
@@ -26,7 +26,7 @@ services:
 
   celery:
     build: .
-    command: celery -A parking_server worker --loglevel=info
+    command: celery -A config worker --loglevel=info --concurrency=4
     volumes:
       - .:/app
     depends_on:
@@ -46,7 +46,7 @@ services:
 
   celery-beat:
     build: .
-    command: sh -c "celery -A parking_server purge -f && celery -A parking_server beat --loglevel=info"
+    command: sh -c "celery -A config purge -f && celery -A config beat --loglevel=info"
     volumes:
       - .:/app
     depends_on:
