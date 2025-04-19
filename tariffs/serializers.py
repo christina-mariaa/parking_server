@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Tariff
+from .models import Tariff, TariffPriceHistory
 
 
 class TariffSerializer(serializers.ModelSerializer):
@@ -42,3 +42,25 @@ class UpdateTariffSerializer(serializers.ModelSerializer):
         if price < 0:
             raise serializers.ValidationError("Цена не может быть отрицательной")
         return data
+
+    def update(self, instance, validated_data):
+        """
+        Обновляет цену тарифа и фиксирует пользователя, который её изменил.
+        """
+        user = self.context['request'].user  # Получаем текущего пользователя из контекста
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save(changed_by=user)  # Передаём changed_by при сохранении
+        return instance
+
+
+class TariffPriceHistorySerializer(serializers.ModelSerializer):
+    """
+    Сериализатор для отображения истории изменения цен тарифов.
+    """
+    tariff = serializers.CharField(source='tariff.name', read_only=True)
+    changed_by = serializers.CharField(source='changed_by.email', read_only=True)
+
+    class Meta:
+        model = TariffPriceHistory
+        fields = ['tariff', 'old_price', 'new_price', 'changed_by', 'changed_at']

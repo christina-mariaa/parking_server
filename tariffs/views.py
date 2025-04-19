@@ -4,8 +4,8 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
 from api.permissions import IsAdminPermission
-from .models import Tariff
-from .serializers import TariffSerializer, AdminTariffSerializer, UpdateTariffSerializer
+from .models import Tariff, TariffPriceHistory
+from .serializers import TariffSerializer, AdminTariffSerializer, UpdateTariffSerializer, TariffPriceHistorySerializer
 
 
 class TariffsListView(ListAPIView):
@@ -63,7 +63,7 @@ class TariffUpdateView(APIView):
         except Tariff.DoesNotExist:
             return Response({"error": "Тариф не найден"}, status=status.HTTP_404_NOT_FOUND)
 
-        serializer = UpdateTariffSerializer(tariff, data=request.data, partial=True)
+        serializer = UpdateTariffSerializer(tariff, data=request.data, partial=True, context={'request': request})
         if serializer.is_valid():
             serializer.save()
             return Response(
@@ -71,3 +71,12 @@ class TariffUpdateView(APIView):
                 status=status.HTTP_200_OK
             )
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class TariffPriceHistoryListView(ListAPIView):
+    """
+    Представление для получения истории обновления цен тарифов.
+    """
+    queryset = TariffPriceHistory.objects.all()
+    serializer_class = TariffPriceHistorySerializer
+    permission_classes = [IsAuthenticated, IsAdminPermission]

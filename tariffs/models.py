@@ -1,5 +1,6 @@
 from django.db import models
 from datetime import timedelta
+from api.models import CustomUser
 
 
 class Tariff(models.Model):
@@ -35,3 +36,41 @@ class Tariff(models.Model):
         elif self.name == 'monthly':
             return timedelta(days=30)
         return timedelta()
+
+    def save(self, *args, changed_by=None, **kwargs):
+        """
+        Сохраняет изменения в тарифе и автоматически фиксирует историю изменения цены.
+
+        Аргументы:
+        - changed_by (CustomUser, необязательный): Пользователь, который изменил цену тарифа.
+
+        При изменении цены создаётся запись в модели TariffPriceHistory.
+        """
+        if self.pk:
+            old_price = Tariff.objects.get(pk=self.pk).price  # Получение старой цены
+            if old_price != self.price:  # Если цена обновляется
+                TariffPriceHistory.objects.create(
+                    tariff=self,
+                    old_price=old_price,
+                    new_price=self.price,
+                    changed_by=changed_by
+                )
+        super().save(*args, **kwargs)
+
+
+class TariffPriceHistory(models.Model):
+    """
+   Модель, представляющая историю изменения цены тарифа.
+
+   Поля:
+   - tariff (ForeignKey): Ссылка на тариф, для которого зафиксировано изменение.
+   - old_price (DecimalField): Предыдущая цена тарифа.
+   - new_price (DecimalField): Новая установленная цена тарифа.
+   - changed_by (ForeignKey): Пользователь, который изменил цену (может быть пустым).
+   - changed_at (DateTimeField): Дата и время изменения цены (устанавливается автоматически).
+   """
+    tariff = models.ForeignKey(Tariff, on_delete=models.CASCADE, related_name='price_history')
+    old_price = models.DecimalField(max_digits=10, decimal_places=2)
+    new_price = models.DecimalField(max_digits=10, decimal_places=2)
+    changed_by = models.ForeignKey(CustomUser, on_delete=models.SET_NULL, null=True, blank=True)
+    changed_at = models.DateTimeField(auto_now_add=True)
