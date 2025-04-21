@@ -5,23 +5,28 @@ from datetime import datetime, timezone
 from django.conf import settings
 from rest_framework.exceptions import ValidationError
 from bookings.models import Booking
+from .create_log import create_log
 
 
 def validate_qr_code_data(validated_data):
     """
-    Проверяет корректность данных, полученных из QR-кода для доступа к парковке.
+    Выполняет полную проверку данных из QR-кода для доступа и логирует результат.
 
-    Выполняет следующие проверки:
-    - Существование бронирования по переданному booking_id.
-    - Наличие оплаты (наличие связанного объекта Payment).
-    - Корректность цифровой подписи HMAC (по полям booking_id, start_time, end_time).
-    - Актуальность времени: текущее время должно быть между start_time и end_time.
+    Проверки включают:
+    - Существование бронирования.
+    - Статус бронирования (должно быть активным).
+    - Наличие оплаты.
+    - Корректность HMAC-подписи.
+    - Актуальность временного интервала.
+
+    В случае отказа создаёт запись в QRAccessLog с соответствующей причиной.
+    При успешной проверке также создаётся лог успешного доступа.
 
     Аргументы:
-        validated_data (dict): Словарь с полями:
+        validated_data (dict): Данные, прошедшие сериализатор. Ожидаются поля:
             - booking_id (str)
-            - start_time (datetime.datetime)
-            - end_time (datetime.datetime)
+            - start_time (datetime)
+            - end_time (datetime)
             - signature (str)
     """
     booking_id = str(validated_data['booking_id'])
@@ -33,14 +38,17 @@ def validate_qr_code_data(validated_data):
     try:
         booking = Booking.objects.get(id=booking_id)
     except Booking.DoesNotExist:
+        create_log(validated_data, access_granted=False, failure_reason='booking_not_found')
         raise ValidationError("Бронирование не найдено")
 
     # Проверка статуса
     if booking.status != 'active':
+        create_log(validated_data, access_granted=False, failure_reason='booking_inactive', booking=booking)
         raise ValidationError("Бронирование отменено или уже завершено")
 
     # Проверка оплаты
     if not hasattr(booking, "payment"):
+        create_log(validated_data, access_granted=False, failure_reason='booking_unpaid', booking=booking)
         raise ValidationError("Бронирование не оплачено")
 
     # Формирование данных без подписи
@@ -59,9 +67,13 @@ def validate_qr_code_data(validated_data):
 
     # Сравнение подписей
     if not hmac.compare_digest(signature, expected_signature):
+        create_log(validated_data, access_granted=False, failure_reason='invalid_signature', booking=booking)
         raise ValidationError('Подпись не совпадает')
 
     # Проверка временного интервала
     now = datetime.now(timezone.utc)
     if not (start_time <= now <= end_time):
+        create_log(validated_data, access_granted=False, failure_reason='expired', booking=booking)
         raise ValidationError("Время действия бронирования истекло")
+
+    create_log(validated_data, access_granted=True, booking=booking)

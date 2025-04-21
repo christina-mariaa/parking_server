@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from .models import QRAccessLog
 
 
 class QRCodeAccessSerializer(serializers.Serializer):
@@ -11,3 +12,12 @@ class QRCodeAccessSerializer(serializers.Serializer):
     start_time = serializers.DateTimeField()
     end_time = serializers.DateTimeField()
     signature = serializers.CharField()
+
+
+class QRAccessLogSerializer(serializers.ModelSerializer):
+    """
+    Сериализатор для получения списка логов
+    """
+    class Meta:
+        model = QRAccessLog
+        fields = '__all__'

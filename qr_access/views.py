@@ -1,12 +1,18 @@
+import json
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.views import APIView
+from rest_framework.generics import ListAPIView
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.exceptions import ValidationError
 from .qr_generator import generate_qr_code
 from .qr_reader import validate_qr_code_data
-from .serializers import QRCodeAccessSerializer
+from .models import QRAccessLog
+from .serializers import QRCodeAccessSerializer, QRAccessLogSerializer
 from bookings.models import Booking
+from .create_log import create_log
+from api.permissions import IsAdminPermission
 
 
 class QRView(APIView):
@@ -53,7 +59,7 @@ class VerifyQRCodeAccessView(APIView):
 
     Алгоритм работы:
     1. Сериализатор проверяет структуру и типы данных.
-    2. Функция check_qr_access проводит основную валидацию:
+    2. Функция validate_qr_code_data проводит основную валидацию:
         - Проверка существования брони.
         - Проверка факта оплаты.
         - Проверка цифровой подписи.
@@ -69,4 +75,25 @@ class VerifyQRCodeAccessView(APIView):
                 return Response({"detail": "Доступ разрешён"}, status=status.HTTP_200_OK)
             except ValidationError as e:
                 return Response({"error": str(e.detail[0])}, status=status.HTTP_403_FORBIDDEN)
+        else:
+            create_log(
+                qr_data=json.dumps(request.data, ensure_ascii=False),
+                access_granted=False,
+                failure_reason='invalid_format'
+            )
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class QRAccessLogPagination(PageNumberPagination):
+    page_size = 100
+    page_size_query_param = 'page_size'
+
+
+class QRAccessLogListView(ListAPIView):
+    """
+    Представление для получения списка логов попыток доступа по QR-коду.
+    """
+    queryset = QRAccessLog.objects.all().order_by('-time')
+    serializer_class = QRAccessLogSerializer
+    permission_classes = [IsAuthenticated, IsAdminPermission]
+    pagination_class = QRAccessLogPagination
