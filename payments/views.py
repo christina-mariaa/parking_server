@@ -48,7 +48,7 @@ class UserMakePaymentView(APIView):
 
 
 class AdminPaymentPagination(PageNumberPagination):
-    page_size = 20
+    page_size = 50
     page_size_query_param = 'page_size'
     max_page_size = 100
 
@@ -57,7 +57,7 @@ class AdminPaymentListView(ListAPIView):
     """
     Представление для получения списка всех оплат администратором.
     """
-    queryset = Payment.objects.select_related('booking__car__user', 'booking__tariff').order_by('id')
+    queryset = Payment.objects.select_related('booking__car__user', 'booking__tariff').order_by('-id')
     serializer_class = AdminPaymentListSerializer
     permission_classes = [IsAuthenticated, IsAdminPermission]
     pagination_class = AdminPaymentPagination
