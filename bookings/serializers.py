@@ -1,8 +1,10 @@
+from asgiref.sync import async_to_sync
 from rest_framework import serializers
 from cars.models import Car
 from tariffs.models import Tariff
 from parking_spots.models import ParkingSpot
 from .models import Booking
+from realtime.notifications.bookings import notify_users_about_booking_change
 
 
 class BaseBookingSerializer(serializers.ModelSerializer):

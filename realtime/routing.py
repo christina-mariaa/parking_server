@@ -7,7 +7,7 @@ from .consumers.parking_spots import ParkingSpotConsumer
 
 
 websocket_urlpatterns = [
-    re_path(r'ws/parking_spots/$', ParkingSpotConsumer.as_asgi()),
+    re_path(r'ws/parking_spots$', ParkingSpotConsumer.as_asgi()),
     re_path(r'ws/admin/users$', AdminUserConsumer.as_asgi()),
     re_path(r'ws/admin/cars$', AdminCarConsumer.as_asgi()),
     re_path(r'ws/admin/bookings$', AdminBookingConsumer.as_asgi()),

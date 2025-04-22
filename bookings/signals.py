@@ -1,3 +1,4 @@
+from asgiref.sync import async_to_sync
 from django.dispatch import receiver
 from django.db.models.signals import post_save
 from realtime.notifications.bookings import notify_users_about_booking_change
@@ -12,4 +13,4 @@ def booking_change_handler(instance, created, **kwargs):
         instance.parking_place.save()
     else:
         action = 'updated'
-    notify_users_about_booking_change(instance, action)
+    async_to_sync(notify_users_about_booking_change)(instance, action)

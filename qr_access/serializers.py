@@ -18,6 +18,11 @@ class QRAccessLogSerializer(serializers.ModelSerializer):
     """
     Сериализатор для получения списка логов
     """
+    failure_reason_display = serializers.SerializerMethodField()
+
     class Meta:
         model = QRAccessLog
-        fields = '__all__'
+        fields = ['id', 'qr_data', 'access_granted', 'failure_reason', 'failure_reason_display', 'time', 'booking']
+
+    def get_failure_reason_display(self, obj):
+        return obj.get_failure_reason_display() if obj.failure_reason else None
