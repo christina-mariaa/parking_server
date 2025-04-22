@@ -4,6 +4,7 @@ from .consumers.cars import AdminCarConsumer
 from .consumers.bookings import AdminBookingConsumer
 from .consumers.payments import AdminPaymentConsumer
 from .consumers.parking_spots import ParkingSpotConsumer
+from .consumers.access_logs import AdminAccessLogConsumer
 
 
 websocket_urlpatterns = [
@@ -12,4 +13,5 @@ websocket_urlpatterns = [
     re_path(r'ws/admin/cars$', AdminCarConsumer.as_asgi()),
     re_path(r'ws/admin/bookings$', AdminBookingConsumer.as_asgi()),
     re_path(r'ws/admin/payments$', AdminPaymentConsumer.as_asgi()),
+    re_path(r'ws/admin/access-logs$', AdminAccessLogConsumer.as_asgi()),
 ]
