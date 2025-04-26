@@ -25,6 +25,7 @@ urlpatterns = [
     path('parking-maps/', include('parking_maps.urls')),
     path('access/', include('qr_access.urls')),
     path('analytics/admin/', include('analytics.urls')),
+    path('support/', include('support.urls')),
     path('swagger/', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),
     path('admin/', admin.site.urls),
 ]

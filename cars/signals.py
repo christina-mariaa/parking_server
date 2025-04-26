@@ -11,4 +11,8 @@ def car_change_handler(instance, created, **kwargs):
         action = 'created'
     else:
         action = 'updated'
+
+    user = instance.user
+
+    _ = user.email
     async_to_sync(notify_users_about_car_change)(instance, action)

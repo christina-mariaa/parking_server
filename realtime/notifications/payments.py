@@ -2,14 +2,13 @@ import json
 from channels.layers import get_channel_layer
 
 
-async def notify_users_about_payment_change(payment, action):
+async def notify_users_about_payment_change(payment):
     """
     Отправляет уведомление через WebSocket о создании оплаты.
     """
     channel_layer = get_channel_layer()
     message = {
         'type': 'payment.change',
-        'action': action,
         'data': {
             "id": payment.id,
             "amount": float(payment.amount),

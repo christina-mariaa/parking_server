@@ -62,6 +62,7 @@ INSTALLED_APPS = [
     'qr_access',
     'analytics',
     'realtime',
+    'support',
     'channels',
     'django_celery_beat',
     'drf_yasg'

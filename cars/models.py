@@ -20,7 +20,7 @@ class Car(models.Model):
 
     Поля:
     - user (ForeignKey): Владелец автомобиля (пользователь системы).
-    - license_plate (CharField): Номерной знак автомобиля. Уникален.
+    - license_plate (CharField): Номерной знак автомобиля.
     - make (CharField): Марка автомобиля (опционально).
     - model (CharField): Модель автомобиля (опционально).
     - color (CharField): Цвет автомобиля (опционально).
@@ -38,7 +38,7 @@ class Car(models.Model):
         * Если у автомобиля есть активные бронирования — выбрасывается исключение.
     """
     user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='cars')
-    license_plate = models.CharField(max_length=15, unique=True)
+    license_plate = models.CharField(max_length=15)
     make = models.CharField(max_length=50, null=True, blank=True)
     model = models.CharField(max_length=100, null=True, blank=True)
     color = models.CharField(max_length=50, null=True, blank=True)
@@ -47,6 +47,15 @@ class Car(models.Model):
 
     objects = CarManager()
     all_objects = models.Manager()
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['license_plate'],
+                condition=models.Q(is_deleted=False),
+                name='unique_license_plate_active'
+            )
+        ]
 
     def delete(self, *args, **kwargs):
         """
