@@ -3,6 +3,7 @@ from rest_framework.generics import ListAPIView
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.pagination import PageNumberPagination
 from api.permissions import IsAdminPermission
 from .models import SupportRequest
 from .serializers import (
@@ -51,8 +52,14 @@ class SupportRequestDetailAPIView(APIView):
         support_request = get_object_or_404(SupportRequest, pk=request_id)
         if not request.user.is_staff and support_request.user != request.user:
             return Response({'detail': 'Нет доступа'}, status=status.HTTP_403_FORBIDDEN)
-        serializer = SupportRequestSerializer(support_request)
+        serializer = SupportReplySerializer(support_request.replies, many=True)
         return Response(serializer.data)
+
+
+class AdminRequestsPagination(PageNumberPagination):
+    page_size = 20
+    page_size_query_param = 'page_size'
+    max_page_size = 100
 
 
 class SupportRequestListView(ListAPIView):
@@ -62,6 +69,7 @@ class SupportRequestListView(ListAPIView):
     queryset = SupportRequest.objects.all().order_by('-created_at')
     serializer_class = SupportRequestSerializer
     permission_classes = [IsAuthenticated, IsAdminPermission]
+    pagination_class = AdminRequestsPagination
 
 
 class SupportReplyAPIView(APIView):
