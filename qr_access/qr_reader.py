@@ -14,10 +14,8 @@ def validate_qr_code_data(validated_data):
 
     Проверки включают:
     - Существование бронирования.
-    - Статус бронирования (должно быть активным).
     - Наличие оплаты.
     - Корректность HMAC-подписи.
-    - Актуальность временного интервала.
 
     В случае отказа создаёт запись в QRAccessLog с соответствующей причиной.
     При успешной проверке также создаётся лог успешного доступа.
@@ -40,11 +38,6 @@ def validate_qr_code_data(validated_data):
     except Booking.DoesNotExist:
         create_log(validated_data, access_granted=False, failure_reason='booking_not_found')
         raise ValidationError("Бронирование не найдено")
-
-    # Проверка статуса
-    if booking.status != 'active':
-        create_log(validated_data, access_granted=False, failure_reason='booking_inactive', booking=booking)
-        raise ValidationError("Бронирование отменено или уже завершено")
 
     # Проверка оплаты
     if not hasattr(booking, "payment"):
@@ -69,11 +62,5 @@ def validate_qr_code_data(validated_data):
     if not hmac.compare_digest(signature, expected_signature):
         create_log(validated_data, access_granted=False, failure_reason='invalid_signature', booking=booking)
         raise ValidationError('Подпись не совпадает')
-
-    # Проверка временного интервала
-    now = datetime.now(timezone.utc)
-    if not (start_time <= now <= end_time):
-        create_log(validated_data, access_granted=False, failure_reason='expired', booking=booking)
-        raise ValidationError("Время действия бронирования истекло")
 
     create_log(validated_data, access_granted=True, booking=booking)

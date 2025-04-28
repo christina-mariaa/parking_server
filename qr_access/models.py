@@ -18,11 +18,8 @@ class QRAccessLog(models.Model):
     """
     FAILURE_REASONS = [
         ('booking_not_found', 'Бронирование не найдено'),
-        ('booking_inactive', 'Бронирование отменено или завершено'),
         ('booking_unpaid', 'Бронирование не оплачено'),
-        ('invalid_signature', 'Подпись не совпадает'),
-        ('expired', 'Время действия бронирования истекло'),
-        ('invalid_format', 'Некорректный формат данных')
+        ('invalid_signature', 'Подпись не совпадает')
     ]
     qr_data = models.TextField()
     booking = models.ForeignKey(Booking, on_delete=models.SET_NULL, null=True, blank=True, related_name='qr_logs')
