@@ -77,6 +77,6 @@ class TariffPriceHistoryListView(ListAPIView):
     """
     Представление для получения истории обновления цен тарифов.
     """
-    queryset = TariffPriceHistory.objects.all()
+    queryset = TariffPriceHistory.objects.all().order_by('-id')
     serializer_class = TariffPriceHistorySerializer
     permission_classes = [IsAuthenticated, IsAdminPermission]
