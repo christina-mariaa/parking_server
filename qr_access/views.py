@@ -3,7 +3,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.views import APIView
 from rest_framework.generics import ListAPIView
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.pagination import PageNumberPagination
 from rest_framework.exceptions import ValidationError
 from .qr_generator import generate_qr_code
@@ -67,6 +67,8 @@ class VerifyQRCodeAccessView(APIView):
     3. В случае успеха возвращает: 200 OK с сообщением "Доступ разрешён".
     4. В случае ошибки возвращает: 403 Forbidden с описанием причины.
     """
+    permission_classes = [AllowAny]
+
     def post(self, request):
         serializer = QRCodeAccessSerializer(data=request.data)
         if serializer.is_valid():

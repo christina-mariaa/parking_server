@@ -15,7 +15,7 @@ async def notify_users_about_logs_change(access_log):
             "failure_reason": access_log.failure_reason,
             "failure_reason_display": access_log.get_failure_reason_display() if access_log.failure_reason else None,
             "time": access_log.time.isoformat(),
-            "booking": access_log.booking.id
+            "booking": access_log.booking.id if access_log.booking else None
         }
     }
     await channel_layer.group_send(

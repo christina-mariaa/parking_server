@@ -7,4 +7,7 @@ from .models import QRAccessLog
 
 @receiver(post_save, sender=QRAccessLog)
 def access_log_add_handler(instance, created, **kwargs):
+    booking = instance.booking
+    if booking:
+        _ = booking.id
     async_to_sync(notify_users_about_logs_change)(instance)
