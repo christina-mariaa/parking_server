@@ -52,14 +52,15 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         password = attrs.get('password')
 
         user = get_user_from_cache(email)
+
         if not user or not user.check_password(password):
             raise serializers.ValidationError("Неверный email или пароль.")
 
-        if not user.is_active:
-            raise serializers.ValidationError("Пользователь не активен.")
-
         tokens = generate_tokens_for_user(user)
         tokens['is_staff'] = user.is_staff
+        tokens['email'] = user.email
+        tokens['first_name'] = user.first_name
+        tokens['last_name'] = user.last_name
         return tokens
 
 
@@ -86,13 +87,39 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         return user
 
 
+class UpdateUserSerializer(serializers.ModelSerializer):
+    """
+    Сериализатор для обновления информации о пользователе.
+    """
+    class Meta:
+        model = CustomUser
+        fields = ['email', 'first_name', 'last_name']
+
+    def validate_email(self, value):
+        user = self.context['request'].user
+        if CustomUser.objects.exclude(pk=user.pk).filter(email=value).exists():
+            raise serializers.ValidationError("Этот email уже используется другим пользователем.")
+        return value
+
+    def update(self, instance, validated_data):
+        old_email = instance.email
+        instance = super().update(instance, validated_data)
+        new_email = instance.email
+
+        if old_email != new_email:
+            cache.delete(old_email)
+            cache.set(new_email, instance, timeout=None)
+
+        return instance
+
+
 class AdminUserListSerializer(serializers.ModelSerializer):
     """
     Сериализатор для отображения краткой информации о пользователях в списке.
     """
     class Meta:
         model = CustomUser
-        fields = ['id', 'email', 'first_name', 'last_name', 'is_active', 'date_joined', 'is_staff', 'is_deleted']
+        fields = ['id', 'email', 'first_name', 'last_name', 'date_joined', 'is_staff', 'is_deleted']
 
 
 class AdminUserDetailSerializer(serializers.ModelSerializer):
@@ -110,7 +137,7 @@ class AdminUserDetailSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CustomUser
-        fields = ['id', 'email', 'first_name', 'last_name', 'is_active', 'date_joined', 'is_staff',
+        fields = ['id', 'email', 'first_name', 'last_name', 'date_joined', 'is_staff',
                   'cars', 'bookings', 'payments']
 
     def get_bookings(self, obj):

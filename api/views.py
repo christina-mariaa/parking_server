@@ -1,4 +1,5 @@
 from rest_framework import status
+from django.core.cache import cache
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
@@ -9,6 +10,7 @@ from .permissions import IsAdminPermission
 from .models import CustomUser
 from .serializers import (CustomTokenObtainPairSerializer,
                           UserRegistrationSerializer,
+                          UpdateUserSerializer,
                           AdminUserListSerializer,
                           AdminUserDetailSerializer,
                           UpdateAdminStatusSerializer)
@@ -35,6 +37,37 @@ class UserRegistrationView(APIView):
                 {'message': 'Регистрация прошла успешно.'},
                 status=status.HTTP_201_CREATED
             )
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class DeleteUserView(APIView):
+    """
+    Представление для удаления аккаунта самим пользователем.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def delete(self, request):
+        user = request.user
+        try:
+            user.delete()
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+        return Response({'detail': 'Аккаунт успешно удалён'}, status=status.HTTP_200_OK)
+
+
+class UpdateUserView(APIView):
+    """
+    Представления для обновления информации о пользователе.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def patch(self, request):
+        user = request.user
+        serializer = UpdateUserSerializer(user, data=request.data, partial=True, context={'request': request})
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 

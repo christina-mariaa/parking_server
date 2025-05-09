@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager
+from django.core.cache import cache
 
 
 class CustomUserManager(BaseUserManager):
@@ -69,7 +70,6 @@ class CustomUser(AbstractBaseUser):
     email = models.EmailField(unique=True)
     first_name = models.CharField(max_length=100)
     last_name = models.CharField(max_length=100)
-    is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
     is_superuser = models.BooleanField(default=False)
     date_joined = models.DateTimeField(auto_now_add=True)
@@ -93,8 +93,10 @@ class CustomUser(AbstractBaseUser):
         if self.cars.filter(bookings__status='active').exists():
             raise Exception("Нельзя удалить пользователя, пока у него есть автомобили с активными бронированиями.")
 
-        self.is_active = False
+        self.is_deleted = True
         self.save()
+
+        cache.delete(self.email)
 
         for car in self.cars.all():
             car.delete()
