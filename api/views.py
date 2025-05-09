@@ -40,35 +40,40 @@ class UserRegistrationView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-class DeleteUserView(APIView):
+class UserProfileView(APIView):
     """
-    Представление для удаления аккаунта самим пользователем.
+    Представление для получения, обновления и удаления аккаунта текущим пользователем.
     """
     permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        serializer = UpdateUserSerializer(request.user)
+        return Response(serializer.data)
+
+    def patch(self, request):
+        user = request.user
+        old_email = user.email
+        serializer = UpdateUserSerializer(user, data=request.data, partial=True, context={'request': request})
+        if serializer.is_valid():
+            serializer.save()
+            new_email = serializer.validated_data.get('email', old_email)
+
+            if old_email != new_email:
+                cache.delete(old_email)
+                cache.set(new_email, user, timeout=None)
+
+            return Response(serializer.data)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def delete(self, request):
         user = request.user
         try:
             user.delete()
+            cache.delete(user.email)
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
         return Response({'detail': 'Аккаунт успешно удалён'}, status=status.HTTP_200_OK)
-
-
-class UpdateUserView(APIView):
-    """
-    Представления для обновления информации о пользователе.
-    """
-    permission_classes = [IsAuthenticated]
-
-    def patch(self, request):
-        user = request.user
-        serializer = UpdateUserSerializer(user, data=request.data, partial=True, context={'request': request})
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class AdminUserPagination(PageNumberPagination):
