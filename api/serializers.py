@@ -58,9 +58,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
 
         tokens = generate_tokens_for_user(user)
         tokens['is_staff'] = user.is_staff
-        tokens['email'] = user.email
-        tokens['first_name'] = user.first_name
-        tokens['last_name'] = user.last_name
+
         return tokens
 
 
