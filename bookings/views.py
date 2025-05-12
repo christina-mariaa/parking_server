@@ -41,16 +41,16 @@ class UserBookingView(APIView):
         is_paid = request.query_params.get('paid', None)
         bookings = Booking.objects.filter(car__user=request.user)
         if is_active == 'true':
-            bookings = bookings.filter(status='active')
+            bookings = bookings.filter(status='active').order_by('-id')
         elif is_active == 'false':
-            bookings = bookings.exclude(status='active')
+            bookings = bookings.exclude(status='active').order_by('-id')
 
         if is_paid == 'true':
             # Только оплаченные бронирования
-            bookings = bookings.filter(payment__isnull=False)
+            bookings = bookings.filter(payment__isnull=False).order_by('-id')
         elif is_paid == 'false':
             # Только неоплаченные бронирования
-            bookings = bookings.filter(payment__isnull=True)
+            bookings = bookings.filter(payment__isnull=True).order_by('-id')
         serializer = BookingSerializer(bookings, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
