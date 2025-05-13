@@ -88,6 +88,9 @@ class GenerateReportAPIView(APIView):
         if not start_date or not end_date:
             return Response({"error": "start_date and end_date are required"}, status=400)
 
+        if not isinstance(include, list) or not include:
+            return Response({"error": "Поле 'include' должно содержать хотя бы один элемент"}, status=400)
+
         data = {}
         if 'statistics' in include:
             data['statistics'] = collect_statistics(start_date, end_date)
@@ -99,6 +102,9 @@ class GenerateReportAPIView(APIView):
             data['new_users'] = collect_new_users(start_date, end_date)
         if 'new_cars' in include:
             data['new_cars'] = collect_new_cars(start_date, end_date)
+
+        if not data:
+            return Response({"error": "В 'include' должны быть только допустимые значения"}, status=400)
 
         file_data = generate_xlsx_report(data)
         file_type = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'

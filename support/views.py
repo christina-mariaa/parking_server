@@ -40,11 +40,7 @@ class SupportRequestListCreateAPIView(APIView):
 
 class SupportRequestDetailAPIView(APIView):
     """
-    API для получения одного обращения по его ID.
-
-    GET:
-    - Возвращает полную информацию об обращении с вложенными ответами администратора.
-    - Только владелец обращения или администратор могут получить доступ.
+    API для получения ответов на обращения по его ID.
     """
     permission_classes = [IsAuthenticated]
 
