@@ -23,6 +23,7 @@ class CustomUserManager(BaseUserManager):
         if not password:
             raise ValueError("The Password field must be set")
 
+        extra_fields.setdefault('is_active', True)
         email = self.normalize_email(email)
         user = self.model(email=email, **extra_fields)
         user.set_password(password)  # Пароль хэшируется на сервере
@@ -34,6 +35,7 @@ class CustomUserManager(BaseUserManager):
         Создаёт и возвращает суперпользователя (админа).
         is_staff и is_superuser должны быть установлены в True
         """
+        extra_fields.setdefault('is_active', True)
         extra_fields.setdefault('is_staff', True)
         extra_fields.setdefault('is_superuser', True)
 
