@@ -85,11 +85,11 @@ class GenerateReportAPIView(APIView):
         end_date = request.data.get('end_date')
         include = request.data.get('include', [])  # ["statistics", "bookings", ...]
 
-        if not start_date or not end_date:
-            return Response({"error": "start_date and end_date are required"}, status=400)
+        if not start_date or not end_date or not include:
+            return Response({"error": "start_date, end_date and include are required"}, status=400)
 
         if not isinstance(include, list) or not include:
-            return Response({"error": "Поле 'include' должно содержать хотя бы один элемент"}, status=400)
+            return Response({"error": "Поле 'include' должно быть списком содержать хотя бы один элемент"}, status=400)
 
         data = {}
         if 'statistics' in include:

@@ -66,4 +66,7 @@ class Car(models.Model):
             raise Exception("Нельзя удалить автомобиль, пока на него есть активные бронирования.")
         self.is_deleted = True
         self.license_plate = "Удален"
+        self.make = "Удален"
+        self.model = "Удален"
+        self.color = "Удален"
         self.save()

@@ -92,11 +92,13 @@ class CustomUser(AbstractBaseUser):
         """
         if self.cars.filter(bookings__status='active').exists():
             raise Exception("Нельзя удалить пользователя, пока у него есть автомобили с активными бронированиями.")
-
-        self.is_deleted = True
-        self.save()
-
         cache.delete(self.email)
+        self.is_deleted = True
+        self.set_unusable_password()
+        self.email = f"deleted_{self.pk}@deleted.invalid"
+        self.first_name = "Удален"
+        self.last_name = "Удален"
+        self.save()
 
         for car in self.cars.all():
             car.delete()

@@ -44,7 +44,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
 
     Дополнительно:
     - Проверяется наличие пользователя в кэше.
-    - Проверяется пароль и активность пользователя.
+    - Проверяется пароль пользователя.
     - В ответ добавляется флаг `is_staff`.
     """
     def validate(self, attrs):
