@@ -1,3 +1,4 @@
+from django.db.models import Q
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 from rest_framework.generics import ListAPIView
@@ -73,12 +74,36 @@ class AdminCarPagination(PageNumberPagination):
 class AdminCarListView(ListAPIView):
     """
     Представление для администратора: чтение списка всех автомобилей.
-
     Особенности:
     - Показывает как активные, так и удалённые автомобили.
     - Поддерживается пагинация (20 объектов на страницу).
     """
-    queryset = Car.all_objects.select_related('user').order_by('id')
     serializer_class = AdminCarListSerializer
     permission_classes = [IsAuthenticated, IsAdminPermission]
     pagination_class = AdminCarPagination
+
+    def get_queryset(self):
+        """
+        Возвращает отфильтрованный список автомобилей на основе параметров поиска.
+        """
+        queryset = Car.all_objects.select_related('user').order_by('id')
+        search_query = self.request.query_params.get('search', None)
+
+        if search_query:
+            # Если есть параметр поиска, фильтруем данные без пагинации
+            queryset = queryset.filter(
+                Q(license_plate__icontains=search_query) |
+                Q(user__email__icontains=search_query)
+            )
+            # Возвращаем отфильтрованные данные без пагинации
+            return queryset
+
+        # Если нет поискового запроса, применяем пагинацию
+        return queryset
+
+    def paginate_queryset(self, queryset):
+        search_query = self.request.query_params.get('search', None)
+        if search_query:
+            # Отключить пагинацию при наличии запроса
+            return None
+        return super().paginate_queryset(queryset)
