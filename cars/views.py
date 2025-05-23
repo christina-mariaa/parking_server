@@ -86,24 +86,16 @@ class AdminCarListView(ListAPIView):
         """
         Возвращает отфильтрованный список автомобилей на основе параметров поиска.
         """
-        queryset = Car.all_objects.select_related('user').order_by('id')
-        search_query = self.request.query_params.get('search', None)
+        if self.request.query_params.get('hide-deleted', 'true').lower() == 'true':
+            queryset = Car.objects.select_related('user')
+        else:
+            queryset = Car.all_objects.select_related('user')
 
+        search_query = self.request.query_params.get('search')
         if search_query:
-            # Если есть параметр поиска, фильтруем данные без пагинации
             queryset = queryset.filter(
                 Q(license_plate__icontains=search_query) |
                 Q(user__email__icontains=search_query)
             )
-            # Возвращаем отфильтрованные данные без пагинации
-            return queryset
 
-        # Если нет поискового запроса, применяем пагинацию
-        return queryset
-
-    def paginate_queryset(self, queryset):
-        search_query = self.request.query_params.get('search', None)
-        if search_query:
-            # Отключить пагинацию при наличии запроса
-            return None
-        return super().paginate_queryset(queryset)
+        return queryset.order_by('id')
