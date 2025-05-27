@@ -1,3 +1,4 @@
+from django.db.models import Q
 from rest_framework.views import APIView
 from rest_framework.generics import ListAPIView
 from rest_framework.permissions import IsAuthenticated
@@ -78,7 +79,32 @@ class AdminBookingListView(ListAPIView):
     """
     Представление для получения списка всех бронирований администратором.
     """
-    queryset = Booking.objects.select_related('car', 'parking_place', 'tariff').order_by('-id')
     serializer_class = AdminBookingListSerializer
     permission_classes = [IsAuthenticated, IsAdminPermission]
     pagination_class = AdminBookingPagination
+
+    def get_queryset(self):
+        """
+        Получает список бронирований с фильтрацией по статусу и поиском.
+
+        - Загружает связанные объекты: автомобиль, парковочное место и тариф.
+        - Фильтрует по статусу бронирования (?status=active&status=completed).
+        - Поддерживает поиск по email пользователя и номеру автомобиля (?search=example).
+        - Сортирует бронирования по убыванию ID (сначала новые).
+        """
+        # Базовый queryset с оптимизированной выборкой связанных объектов
+        queryset = Booking.objects.select_related('car', 'parking_place', 'tariff')
+
+        # Фильтрация по статусам (если переданы)
+        statuses = self.request.query_params.getlist("status")
+        queryset = queryset.filter(status__in=statuses)
+
+        # Фильтрация по email пользователя или номеру автомобиля
+        search = self.request.query_params.get("search")
+        if search:
+            queryset = queryset.filter(
+                Q(car__user__email__icontains=search) |
+                Q(car__license_plate__icontains=search)
+            )
+
+        return queryset.order_by('-id')
