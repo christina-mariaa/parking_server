@@ -1,3 +1,4 @@
+from django.db.models import Q
 from rest_framework import status
 from django.core.cache import cache
 from rest_framework.response import Response
@@ -43,6 +44,11 @@ class UserRegistrationView(APIView):
 class UserProfileView(APIView):
     """
     Представление для получения, обновления и удаления аккаунта текущим пользователем.
+
+    Поддерживаемые методы:
+    - GET: Получить текущий профиль.
+    - PATCH: Обновить профиль (например, имя, фамилию, email).
+    - DELETE: Удалить аккаунт пользователя (мягкое удаление с проверками).
     """
     permission_classes = [IsAuthenticated]
 
@@ -51,6 +57,10 @@ class UserProfileView(APIView):
         return Response(serializer.data)
 
     def patch(self, request):
+        """
+        Обновляет профиль пользователя (частично).
+        Если обновляется email — обновляет кэш (удаляет старый ключ и сохраняет новый).
+        """
         user = request.user
         old_email = user.email
         serializer = UpdateUserSerializer(user, data=request.data, partial=True, context={'request': request})
@@ -58,6 +68,7 @@ class UserProfileView(APIView):
             serializer.save()
             new_email = serializer.validated_data.get('email', old_email)
 
+            # Если email изменился — обновляем кэш
             if old_email != new_email:
                 cache.delete(old_email)
                 cache.set(new_email, user, timeout=None)
@@ -66,6 +77,11 @@ class UserProfileView(APIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def delete(self, request):
+        """
+        Удаляет текущего пользователя.
+        Выполняется мягкое удаление (через user.delete()), которое помечает пользователя как неактивного.
+        Также удаляется пользователь из кэша.
+        """
         user = request.user
         try:
             user.delete()
@@ -92,13 +108,30 @@ class AdminUserViewSet(ReadOnlyModelViewSet):
     """
     permission_classes = [IsAuthenticated, IsAdminPermission]
     pagination_class = AdminUserPagination
-    
+
     def get_queryset(self):
-        return CustomUser.all_objects.prefetch_related(
-            'cars',  # Связанные автомобили
-            'cars__bookings',  # Связанные бронирования автомобилей
-            'cars__bookings__payment'  # Связанные оплаты бронирований
-        ).order_by('id')  # Сортировка по id
+        # Выбор менеджера
+        if self.request.query_params.get("hide-deleted", "true").lower() == "true":
+            queryset = CustomUser.objects
+        else:
+            queryset = CustomUser.all_objects
+
+        # Поиск по email
+        search_query = self.request.query_params.get("search")
+        if search_query:
+            queryset = queryset.filter(
+                Q(email__icontains=search_query)
+            )
+
+        # Подгружаем связанные данные только для retrieve
+        if self.action == 'retrieve':
+            queryset = queryset.prefetch_related(
+                'cars',  # Связанные автомобили
+                'cars__bookings',  # Связанные бронирования автомобилей
+                'cars__bookings__payment'  # Связанные оплаты бронирований
+            )
+
+        return queryset.order_by('id')  # Сортировка по id
     
     def get_serializer_class(self):
         if self.action == 'list':
