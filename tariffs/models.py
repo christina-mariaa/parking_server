@@ -1,41 +1,52 @@
 from django.db import models
 from datetime import timedelta
 from api.models import CustomUser
+from django.utils.functional import cached_property
 
 
 class Tariff(models.Model):
     """
-    Модель, представляющая тариф для бронирования парковочного места.
+    Тариф для бронирования парковочного места.
 
     Поля:
-    - name (CharField): Тип тарифа ('daily' или 'monthly').
-    - price (DecimalField): Стоимость тарифа.
-    - created_at (DateTimeField): Дата создания тарифа (устанавливается автоматически).
-    - updated_at (DateTimeField): Дата последнего обновления тарифа (устанавливается автоматически).
+        name (str): Название тарифа (например, "Почасовой", "Суточный").
+        price (Decimal): Стоимость тарифа.
+        duration_minutes (int): Длительность действия тарифа в минутах.
+        is_active (bool): Флаг, указывающий, доступен ли тариф для новых бронирований.
+        created_at (datetime): Дата создания тарифа.
+        updated_at (datetime): Дата последнего изменения тарифа.
 
     Методы:
-    - get_duration_delta(): Возвращает длительность действия тарифа как timedelta.
-      * 'daily' → 1 день
-      * 'monthly' → 30 дней
+        get_duration_delta(): Возвращает длительность тарифа как timedelta.
+        duration_display: Отображает длительность в человеко-понятном виде (например, "2 часа").
+        save(): При изменении цены сохраняет историю изменений (TariffPriceHistory).
     """
-    DURATION_CHOICES = [
-        ('daily', 'Дневной'),  # 1 день
-        ('monthly', 'Месячный')  # 30 дней
-    ]
-    name = models.CharField(max_length=50, choices=DURATION_CHOICES, unique=True)
+    name = models.CharField(max_length=50, unique=True)
     price = models.DecimalField(max_digits=10, decimal_places=2)
+    duration_minutes = models.PositiveIntegerField()
+    is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     def get_duration_delta(self):
-        """
-        Возвращает длительность действия тарифа в днях.
-        """
-        if self.name == 'daily':
-            return timedelta(days=1)
-        elif self.name == 'monthly':
-            return timedelta(days=30)
-        return timedelta()
+        return timedelta(minutes=self.duration_minutes)
+
+    @cached_property
+    def duration_display(self):
+        minutes = self.duration_minutes
+        days = minutes // 1440
+        hours = (minutes % 1440) // 60
+        mins = minutes % 60
+
+        parts = []
+        if days > 0:
+            parts.append(f"{days} {'день' if days == 1 else 'дня' if days < 5 else 'дней'}")
+        if hours > 0:
+            parts.append(f"{hours} {'час' if hours == 1 else 'часа' if hours < 5 else 'часов'}")
+        if mins > 0 or not parts:  # показывать минуты всегда, если всё остальное = 0
+            parts.append(f"{mins} {'минута' if mins == 1 else 'минуты' if mins < 5 else 'минут'}")
+
+        return " ".join(parts)
 
     def save(self, *args, changed_by=None, **kwargs):
         """

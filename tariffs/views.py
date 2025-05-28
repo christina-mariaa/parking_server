@@ -10,11 +10,11 @@ from .serializers import TariffSerializer, AdminTariffSerializer, UpdateTariffSe
 
 class TariffsListView(ListAPIView):
     """
-    Представление для получения списка всех доступных тарифов.
+    Представление для получения списка только активных тарифов.
 
     Только для чтения. Доступно авторизованным пользователям.
     """
-    queryset = Tariff.objects.all()
+    queryset = Tariff.objects.filter(is_active=True)
     serializer_class = TariffSerializer
     permission_classes = [IsAuthenticated]
 
@@ -32,8 +32,14 @@ class TariffView(APIView):
     def get(self, request):
         """
         Получение списка всех тарифов.
+        Если в query-параметрах передан hide-inactive=true (по умолчанию), возвращаются только активные тарифы.
+        Если hide-inactive=false — возвращаются все тарифы.
         """
-        tariffs = Tariff.objects.all().order_by('id')
+        if self.request.query_params.get("hide-inactive", "true") == "true":
+            tariffs = Tariff.objects.filter(is_active=True)
+        else:
+            tariffs = Tariff.objects.all()
+        tariffs = tariffs.order_by('id')
         serializer = AdminTariffSerializer(tariffs, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
@@ -50,14 +56,11 @@ class TariffView(APIView):
 
 class TariffUpdateView(APIView):
     """
-    Представление для обновления стоимости тарифа администратором.
+    Представление для обновления параметров тарифа (цены или статуса активности) администратором.
     """
     permission_classes = [IsAuthenticated, IsAdminPermission]
 
     def patch(self, request, tariff_id):
-        """
-        Обновление цены тарифа по ID.
-        """
         try:
             tariff = Tariff.objects.get(id=tariff_id)
         except Tariff.DoesNotExist:

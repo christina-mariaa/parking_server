@@ -5,52 +5,80 @@ from .models import Tariff, TariffPriceHistory
 class TariffSerializer(serializers.ModelSerializer):
     """
     Сериализатор для отображения тарифов обычным пользователям.
-    Исключает служебные поля created_at и updated_at.
+
+    Поля:
+        - id: Идентификатор тарифа.
+        - name: Название тарифа.
+        - price: Стоимость тарифа.
+        - duration_display: Человекопонятная длительность (например, "2 часа").
     """
+    duration_display = serializers.SerializerMethodField()
+
     class Meta:
         model = Tariff
-        fields = ['id', 'name', 'price']
+        fields = ['id', 'name', 'price', 'duration_display']
+
+    def get_duration_display(self, obj):
+        return obj.duration_display
 
 
 class AdminTariffSerializer(serializers.ModelSerializer):
     """
     Сериализатор для администратора: включает все поля.
     """
+    duration_display = serializers.SerializerMethodField(read_only=True)
+
     class Meta:
         model = Tariff
-        fields = ['id', 'name', 'price', 'created_at', 'updated_at']
-        read_only_fields = ['created_at', 'updated_at']
+        fields = ['id', 'name', 'price', 'duration_minutes', 'duration_display', 'is_active', 'created_at', 'updated_at']
+        read_only_fields = ['created_at', 'updated_at', 'duration_display']
 
-    def validate(self, data):
-        price = data.get('price')
-        if price < 0:
+    def validate_price(self, value):
+        if value < 0:
             raise serializers.ValidationError("Цена не может быть отрицательной")
-        return data
+        return value
+
+    def validate_duration_minutes(self, value):
+        if value <= 0:
+            raise serializers.ValidationError("Длительность должна быть положительной")
+        return value
+
+    def get_duration_display(self, obj):
+        return obj.duration_display
 
 
 class UpdateTariffSerializer(serializers.ModelSerializer):
     """
-    Сериализатор для обновления только цены тарифа.
-    Используется в PATCH-запросах.
+    Сериализатор для частичного обновления тарифа администратором.
+
+    Позволяет обновить цену и/или статус активности.
+    Фиксирует пользователя, изменившего цену, в истории.
     """
     class Meta:
         model = Tariff
-        fields = ['price']
+        fields = ['price', 'is_active']
 
-    def validate(self, data):
-        price = data.get('price')
-        if price < 0:
+    def validate_price(self, value):
+        if value < 0:
             raise serializers.ValidationError("Цена не может быть отрицательной")
-        return data
+        return value
 
     def update(self, instance, validated_data):
         """
         Обновляет цену тарифа и фиксирует пользователя, который её изменил.
         """
         user = self.context['request'].user  # Получаем текущего пользователя из контекста
+        price_changed = 'price' in validated_data and validated_data['price'] != instance.price
+
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
-        instance.save(changed_by=user)  # Передаём changed_by при сохранении
+
+        # Сохраняем с передачей changed_by только если цена изменилась
+        if price_changed:
+            instance.save(changed_by=user)
+        else:
+            instance.save()
+
         return instance
 
 

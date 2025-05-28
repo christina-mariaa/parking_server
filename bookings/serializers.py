@@ -96,6 +96,8 @@ class BookingSerializer(BaseBookingSerializer):
         """
         car = data.get('car')
         user = self.context['request'].user
+        tariff = data.get('tariff')
+        parking_place = data.get('parking_place')
 
         # Автомобиль должен принадлежать пользователю
         if car.user != user:
@@ -104,7 +106,10 @@ class BookingSerializer(BaseBookingSerializer):
         # Проверка наличия активного бронирования на автомобиль
         if Booking.objects.filter(car=car, status='active').exists():
             raise serializers.ValidationError("На этот автомобиль уже есть активное бронирование")
-        parking_place = data.get('parking_place')
+
+        # Проверка активности тарифа
+        if not tariff.is_active:
+            raise serializers.ValidationError("Выбранный тариф недоступен для бронирования.")
 
         # Проверка доступности парковочного места
         if parking_place.status != 'available':
