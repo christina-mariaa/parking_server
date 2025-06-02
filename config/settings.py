@@ -2,20 +2,14 @@ from pathlib import Path
 import os
 from datetime import timedelta
 from dotenv import load_dotenv
-
+from datetime import timedelta
 
 load_dotenv()
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-
-# Quick-start development settings - unsuitable for production
-# See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
-
-# SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.getenv('SECRET_KEY')
 
-# SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
 ALLOWED_HOSTS = ['81.94.150.202', 'localhost']
@@ -65,7 +59,8 @@ INSTALLED_APPS = [
     'support',
     'channels',
     'django_celery_beat',
-    'drf_yasg'
+    'drf_yasg',
+    'axes'
 ]
 
 ASGI_APPLICATION = "config.asgi.application"
@@ -80,6 +75,7 @@ CHANNEL_LAYERS = {
 }
 
 MIDDLEWARE = [
+    'axes.middleware.AxesMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
@@ -118,9 +114,21 @@ CELERY_RESULT_SERIALIZER = 'json'
 
 WSGI_APPLICATION = 'config.wsgi.application'
 
+AUTHENTICATION_BACKENDS = [
+    'axes.backends.AxesBackend',
+    'django.contrib.auth.backends.ModelBackend',
+]
 
-# Database
-# https://docs.djangoproject.com/en/5.1/ref/settings/#databases
+AXES_ENABLED = True
+AXES_FAILURE_LIMIT = 5
+AXES_COOLOFF_TIME = timedelta(minutes=15)
+AXES_RESET_ON_SUCCESS = True
+AXES_USERNAME_FORM_FIELD = 'email'
+AXES_ACCESS_ATTEMPT_LIMITERS = [
+    'axes.attempts.IPLimiter',
+    'axes.attempts.UsernameLimiter',
+]
+AXES_LOCKOUT_CALLABLE = 'config.auth.lockout_response'  # функция, возвращающая JSON при блокировке
 
 DATABASES = {
     'default': {
@@ -158,8 +166,6 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 
-# Internationalization
-# https://docs.djangoproject.com/en/5.1/topics/i18n/
 
 LANGUAGE_CODE = 'en-us'
 
@@ -169,9 +175,6 @@ USE_I18N = True
 
 USE_TZ = True
 
-
-# Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/5.1/howto/static-files/
 
 STATIC_URL = 'static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')

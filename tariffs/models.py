@@ -9,7 +9,7 @@ class Tariff(models.Model):
     Тариф для бронирования парковочного места.
 
     Поля:
-        name (str): Название тарифа (например, "Почасовой", "Суточный").
+        name (str): Название тарифа.
         price (Decimal): Стоимость тарифа.
         duration_minutes (int): Длительность действия тарифа в минутах.
         is_active (bool): Флаг, указывающий, доступен ли тариф для новых бронирований.
@@ -18,10 +18,10 @@ class Tariff(models.Model):
 
     Методы:
         get_duration_delta(): Возвращает длительность тарифа как timedelta.
-        duration_display: Отображает длительность в человеко-понятном виде (например, "2 часа").
+        duration_display: Отображает длительность в человеко-понятном виде.
         save(): При изменении цены сохраняет историю изменений (TariffPriceHistory).
     """
-    name = models.CharField(max_length=50, unique=True)
+    name = models.CharField(max_length=50)
     price = models.DecimalField(max_digits=10, decimal_places=2)
     duration_minutes = models.PositiveIntegerField()
     is_active = models.BooleanField(default=True)

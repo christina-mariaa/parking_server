@@ -8,23 +8,11 @@ from bookings.models import Booking
 from bookings.serializers import AdminBookingListSerializer
 from payments.models import Payment
 from payments.serializers import AdminPaymentListSerializer
-
-
-def get_user_from_cache(email):
-    """
-    Получает пользователя по email из кэша или базы данных.
-
-    Если пользователь найден в кэше — возвращается сразу.
-    Если нет — происходит запрос к базе данных и сохранение пользователя в кэш без времени истечения.
-    """
-    user = cache.get(email)
-    if not user:
-        try:
-            user = CustomUser.objects.get(email=email)
-            cache.set(email, user, timeout=None)
-        except CustomUser.DoesNotExist:
-            return None
-    return user
+from django.contrib.auth import authenticate
+from axes.utils import get_client_ip_address
+from axes.helpers import get_client_username
+from axes.handlers.proxy import AxesProxyHandler
+from rest_framework.exceptions import PermissionDenied
 
 
 def generate_tokens_for_user(user):
@@ -43,22 +31,24 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     Кастомный сериализатор для получения JWT токенов по email и паролю.
 
     Дополнительно:
-    - Проверяется наличие пользователя в кэше.
     - Проверяется пароль пользователя.
     - В ответ добавляется флаг `is_staff`.
     """
     def validate(self, attrs):
+        request = self.context.get('request')
         email = attrs.get('email')
         password = attrs.get('password')
 
-        user = get_user_from_cache(email)
+        if AxesProxyHandler.is_locked(request, credentials={'email': email}):
+            raise PermissionDenied("Аккаунт временно заблокирован. Повторите позже.")
 
-        if not user or not user.check_password(password):
+        user = authenticate(request=request, email=email, password=password)
+
+        if not user:
             raise serializers.ValidationError("Неверный email или пароль.")
 
         tokens = generate_tokens_for_user(user)
         tokens['is_staff'] = user.is_staff
-
         return tokens
 
 
