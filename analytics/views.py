@@ -59,15 +59,7 @@ class BookingStatsByTariffView(APIView):
             data = (
                 Booking.objects.filter(start_time__gte=start_time)
                 .values("tariff__name")
-                .annotate(
-                    count=Count("id"),  # Общее количество бронирований
-                    unpaid_count=Count(  # Количество неоплаченных бронирований
-                        Case(
-                            When(payment__isnull=True, then=1),  # Условие: если оплаты нет
-                            output_field=models.IntegerField(),
-                        )
-                    ),
-                )
+                .annotate(count=Count("id"))
             )
             stats[period_name] = list(data)
 
