@@ -14,7 +14,7 @@ class TariffsListView(ListAPIView):
 
     Только для чтения. Доступно авторизованным пользователям.
     """
-    queryset = Tariff.objects.filter(is_active=True)
+    queryset = Tariff.objects.filter(is_active=True).order_by('duration_minutes')
     serializer_class = TariffSerializer
     permission_classes = [IsAuthenticated]
 
